@@ -18,7 +18,7 @@ import { useBLE } from "@/contexts/BLEContext";
 import { Button } from "@/components/ui/button";
 
 export default function Index() {
-  const { currentData, isConnected, connectDevice } = useBLE();
+  const { currentData, isConnected, connectDevice, error, debug } = useBLE();
 
   const getVitalStatus = (type: 'heart' | 'oxygen' | 'temp', value: number): 'normal' | 'warning' => {
     if (type === 'heart') {
@@ -36,6 +36,13 @@ export default function Index() {
   return (
     <main className="container py-6">
       
+      {/* Debug temporal */}
+      <div className="mb-4 p-3 bg-gray-100 rounded-lg text-xs font-mono">
+        <p><strong>Debug:</strong> {debug}</p>
+        <p><strong>Conectado:</strong> {isConnected ? 'Sí' : 'No'}</p>
+        {error && <p className="text-red-500"><strong>Error:</strong> {error}</p>}
+      </div>
+
       {/* Alerta de conexión */}
       {!isConnected && (
         <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -48,7 +55,7 @@ export default function Index() {
               </p>
             </div>
             <Button
-              onClick={()=>connectDevice()}
+              onClick={() => connectDevice()}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700"
             >
