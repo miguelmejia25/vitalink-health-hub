@@ -1,49 +1,116 @@
+import { useEffect, useState } from "react"; // 1. Importamos Hooks
 import { VitalCard } from "@/components/VitalCard";
 import { Droplets, Heart, Thermometer, TrendingUp } from "lucide-react";
+import { initializeApp } from "firebase/app";
+import { getDatabase, ref, onValue } from "firebase/database";
+const db = getDatabase();
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
 
-const vitalHistory = [
-  { time: "8:00 AM", heart: 68, oxygen: 98, temp: 36.4 },
-  { time: "10:00 AM", heart: 72, oxygen: 97, temp: 36.5 },
-  { time: "12:00 PM", heart: 75, oxygen: 98, temp: 36.6 },
-  { time: "2:00 PM", heart: 70, oxygen: 99, temp: 36.5 },
-  { time: "4:00 PM", heart: 72, oxygen: 98, temp: 36.6 },
-];
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAPLUpSRjKNtl5wWz1ABdEpiNmSmDNeq-M",
+  authDomain: "vitalink-d9c1a.firebaseapp.com",
+  databaseURL: "https://vitalink-d9c1a-default-rtdb.firebaseio.com",
+  projectId: "vitalink-d9c1a",
+  storageBucket: "vitalink-d9c1a.firebasestorage.app",
+  messagingSenderId: "1079769204426",
+  appId: "1:1079769204426:web:37c811fb12956e1f2d5633",
+  measurementId: "G-7TZWKS60WP"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 export default function Vitals() {
+  // --- ESTADOS (Datos Vivos) ---
+  const [currentData, setCurrentData] = useState({
+    heart: 0,
+    oxygen: 0,
+    temp: 0,
+  });
+
+  const [history, setHistory] = useState<any[]>([]);
+
+  // --- LÓGICA DE CONEXIÓN ---
+  useEffect(() => {
+    // Referencia a la ruta donde tu PWA escribe los datos
+    const dataRef = ref(db, 'pacientes/espol01');
+
+    const unsubscribe = onValue(dataRef, (snapshot) => {
+      const data = snapshot.val();
+      
+      if (data) {
+        // 1. Actualizar datos actuales
+        // Asegúrate que los nombres coincidan con lo que envía tu PWA 
+        // (ej. si enviaste 'ritmo', mapealo a 'heart')
+        const newData = {
+          heart: data.ritmo || 70,       // Valor por defecto si no llega
+          oxygen: data.oxigeno || 98, 
+          temp: data.temperatura || 0,
+        };
+        
+        setCurrentData(newData);
+
+        // 2. Agregar al historial (Tabla)
+        // Creamos una nueva entrada con la hora actual
+        const newEntry = {
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          ...newData
+        };
+
+        // Agregamos al principio de la lista y guardamos solo los últimos 10
+        setHistory((prev) => [newEntry, ...prev].slice(0, 10));
+      }
+    });
+
+    return () => unsubscribe(); // Limpieza al salir
+  }, []);
+
+  // --- CÁLCULO DE PROMEDIOS (Estadísticas) ---
+  const getAverage = (key: string) => {
+    if (history.length === 0) return 0;
+    const sum = history.reduce((acc, curr) => acc + curr[key], 0);
+    return (sum / history.length).toFixed(1);
+  };
+
   return (
     <main className="container py-6">
       {/* Current Vitals */}
       <section className="mb-8">
         <h2 className="mb-4 text-lg font-bold text-foreground">
-          Current Readings
+          Lecturas en Vivo 🔴
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <VitalCard
             title="Heart Rate"
-            value={72}
+            value={currentData.heart}
             unit="bpm"
             icon={<Heart className="h-6 w-6 text-white" />}
             variant="heart"
-            status="normal"
+            status={currentData.heart > 100 ? "warning" : "normal"} // Lógica simple de alerta
             trend="stable"
           />
           <VitalCard
             title="Oxygen Level"
-            value={98}
+            value={currentData.oxygen}
             unit="%"
             icon={<Droplets className="h-6 w-6 text-white" />}
             variant="oxygen"
-            status="normal"
-            trend="up"
+            status={currentData.oxygen < 95 ? "warning" : "normal"}
+            trend="stable"
           />
           <VitalCard
             title="Temperature"
-            value={36.6}
+            value={currentData.temp}
             unit="°C"
             icon={<Thermometer className="h-6 w-6 text-white" />}
             variant="temp"
-            status="normal"
-            trend="stable"
+            status={currentData.temp > 37.5 ? "warning" : "normal"}
+            trend={currentData.temp > 37 ? "up" : "stable"}
           />
         </div>
       </section>
@@ -52,70 +119,42 @@ export default function Vitals() {
       <section className="mb-8">
         <div className="mb-4 flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">Today's History</h2>
+          <h2 className="text-lg font-bold text-foreground">Historial de Sesión</h2>
         </div>
         <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-md">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/50">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    Time
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    <span className="flex items-center gap-2">
-                      <Heart className="h-4 w-4 text-heart" />
-                      Heart
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    <span className="flex items-center gap-2">
-                      <Droplets className="h-4 w-4 text-oxygen" />
-                      O₂
-                    </span>
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                    <span className="flex items-center gap-2">
-                      <Thermometer className="h-4 w-4 text-temp" />
-                      Temp
-                    </span>
-                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Time</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Heart</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">O₂</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Temp</th>
                 </tr>
               </thead>
               <tbody>
-                {vitalHistory.map((reading, index) => (
-                  <tr
-                    key={reading.time}
-                    className={
-                      index !== vitalHistory.length - 1
-                        ? "border-b border-border"
-                        : ""
-                    }
-                  >
-                    <td className="px-4 py-3 text-sm font-medium text-foreground">
-                      {reading.time}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {reading.heart} bpm
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {reading.oxygen}%
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {reading.temp}°C
-                    </td>
-                  </tr>
-                ))}
+                {history.length === 0 ? (
+                    <tr><td colSpan={4} className="p-4 text-center">Esperando datos...</td></tr>
+                ) : (
+                    history.map((reading, index) => (
+                    <tr key={index} className="border-b border-border">
+                        <td className="px-4 py-3 text-sm font-medium text-foreground">{reading.time}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{reading.heart} bpm</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{reading.oxygen}%</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{reading.temp}°C</td>
+                    </tr>
+                    ))
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Stats (Calculadas Automáticamente) */}
       <section>
         <h2 className="mb-4 text-lg font-bold text-foreground">
-          Daily Statistics
+          Estadísticas de la Sesión
         </h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -124,7 +163,7 @@ export default function Vitals() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Avg Heart Rate</p>
-              <p className="text-xl font-bold text-foreground">71 bpm</p>
+              <p className="text-xl font-bold text-foreground">{getAverage('heart')} bpm</p>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -133,7 +172,7 @@ export default function Vitals() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Avg Oxygen</p>
-              <p className="text-xl font-bold text-foreground">98%</p>
+              <p className="text-xl font-bold text-foreground">{getAverage('oxygen')}%</p>
             </div>
           </div>
           <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
@@ -142,7 +181,7 @@ export default function Vitals() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Avg Temperature</p>
-              <p className="text-xl font-bold text-foreground">36.5°C</p>
+              <p className="text-xl font-bold text-foreground">{getAverage('temp')}°C</p>
             </div>
           </div>
         </div>
