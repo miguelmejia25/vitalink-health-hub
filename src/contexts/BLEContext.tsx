@@ -73,70 +73,59 @@ export const BLEProvider = ({ children }: BLEProviderProps) => {
   }, []);
 
   // Conectar al dispositivo BLE
-  const connectDevice = useCallback(async () => {
-    if (!navigator.bluetooth) {
-      setError('Bluetooth Web API no disponible en este navegador');
-      return;
-    }
+ const connectDevice = useCallback(async () => {
+  if (!navigator.bluetooth) {
+    setError('Bluetooth Web API no disponible en este navegador');
+    return;
+  }
 
-    setIsConnecting(true);
-    setError(null);
+  setIsConnecting(true);
+  setError(null);
 
-    try {
-      console.log('🔍 Buscando dispositivo BLE...');
+  try {
+    console.log('🔍 Buscando dispositivo BLE...');
 
-      // IMPORTANTE: Ajusta estos UUIDs según tu ESP32
-      const device = await navigator.bluetooth.requestDevice({
-        // Opción 1: Filtrar por nombre
-        filters: [
-          { namePrefix: 'VitalLink' },  // Cambia por el nombre de tu ESP32
-          { namePrefix: 'ESP32' }
-        ],
-        // Opción 2: Filtrar por servicio (usa uno u otro)
-        // filters: [{ services: ['0000180d-0000-1000-8000-00805f9b34fb'] }],
-        
-        optionalServices: [
-          '0000180d-0000-1000-8000-00805f9b34fb', // Heart Rate Service
-          // Agrega aquí los UUIDs de tus servicios personalizados
-        ]
-      });
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [
+        { namePrefix: 'VitalLink' },
+        { namePrefix: 'ESP32' }
+      ],
+      optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
+    });
 
-      console.log('✅ Dispositivo encontrado:', device.name);
+    console.log('✅ Dispositivo encontrado:', device.name);
 
-      device.addEventListener('gattserverdisconnected', () => {
-        console.log('❌ Dispositivo desconectado');
-        setIsConnected(false);
-        setError('Dispositivo desconectado');
-      });
-
-      const server = await device.gatt?.connect();
-      if (!server) throw new Error('No se pudo conectar al servidor GATT');
-
-      console.log('🔗 Conectado al servidor GATT');
-
-      // IMPORTANTE: Reemplaza este UUID con el de tu servicio
-      const service = await server.getPrimaryService('0000180d-0000-1000-8000-00805f9b34fb');
-      
-      // IMPORTANTE: Reemplaza este UUID con el de tu característica
-      const characteristic = await service.getCharacteristic('00002a37-0000-1000-8000-00805f9b34fb');
-
-      await characteristic.startNotifications();
-      characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
-
-      console.log('🎉 Notificaciones activadas');
-
-      setDevice(device);
-      setCharacteristic(characteristic);
-      setIsConnected(true);
-
-    } catch (err: any) {
-      console.error('Error BLE:', err);
-      setError(err.message || 'Error al conectar con el dispositivo');
+    device.addEventListener('gattserverdisconnected', () => {
+      console.log('❌ Dispositivo desconectado');
       setIsConnected(false);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [handleCharacteristicChange]);
+      setError('Dispositivo desconectado');
+    });
+
+    const server = await device.gatt?.connect();
+    if (!server) throw new Error('No se pudo conectar al servidor GATT');
+
+    console.log('🔗 Conectado al servidor GATT');
+
+    const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
+    const characteristic = await service.getCharacteristic('12345678-1234-5678-1234-56789abcdef1');
+
+    await characteristic.startNotifications();
+    characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
+
+    console.log('🎉 Notificaciones activadas');
+
+    setDevice(device);
+    setCharacteristic(characteristic);
+    setIsConnected(true);
+
+  } catch (err: any) {
+    console.error('Error BLE:', err);
+    setError(err.message || 'Error al conectar con el dispositivo');
+    setIsConnected(false);
+  } finally {
+    setIsConnecting(false);
+  }
+}, [handleCharacteristicChange]);
 
   // Desconectar dispositivo
   const disconnectDevice = useCallback(() => {
