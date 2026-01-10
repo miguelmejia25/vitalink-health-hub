@@ -48,7 +48,7 @@ export default function Index() {
               </p>
             </div>
             <Button
-              onClick={connectDevice}
+              onClick={()=>connectDevice()}
               size="sm"
               className="bg-blue-600 hover:bg-blue-700"
             >
