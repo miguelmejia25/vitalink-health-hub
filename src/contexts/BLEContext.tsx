@@ -75,16 +75,17 @@ export const BLEProvider = ({ children }: BLEProviderProps) => {
   // Conectar al dispositivo BLE
  const connectDevice = useCallback(async () => {
   if (!navigator.bluetooth) {
-    setError('Bluetooth Web API no disponible en este navegador');
+    setError('Bluetooth no disponible');
     return;
   }
 
   setIsConnecting(true);
   setError(null);
 
+  let paso = 0;
+  
   try {
-    console.log('🔍 Buscando dispositivo BLE...');
-
+    paso = 1;
     const device = await navigator.bluetooth.requestDevice({
       filters: [
         { namePrefix: 'VitalLink' },
@@ -93,34 +94,34 @@ export const BLEProvider = ({ children }: BLEProviderProps) => {
       optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
     });
 
-    console.log('✅ Dispositivo encontrado:', device.name);
-
+    paso = 2;
     device.addEventListener('gattserverdisconnected', () => {
-      console.log('❌ Dispositivo desconectado');
       setIsConnected(false);
       setError('Dispositivo desconectado');
     });
 
+    paso = 3;
     const server = await device.gatt?.connect();
-    if (!server) throw new Error('No se pudo conectar al servidor GATT');
+    if (!server) throw new Error('GATT null');
 
-    console.log('🔗 Conectado al servidor GATT');
-
+    paso = 4;
     const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
-    const characteristic = await service.getCharacteristic('12345678-1234-5678-1234-56789abcdef1');
 
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
+    paso = 5;
+    const char = await service.getCharacteristic('12345678-1234-5678-1234-56789abcdef1');
 
-    console.log('🎉 Notificaciones activadas');
+    paso = 6;
+    await char.startNotifications();
+
+    paso = 7;
+    char.addEventListener('characteristicvaluechanged', handleCharacteristicChange);
 
     setDevice(device);
-    setCharacteristic(characteristic);
+    setCharacteristic(char);
     setIsConnected(true);
 
   } catch (err: any) {
-    console.error('Error BLE:', err);
-    setError(err.message || 'Error al conectar con el dispositivo');
+    setError(`Error en paso ${paso}: ${err.message}`);
     setIsConnected(false);
   } finally {
     setIsConnecting(false);
