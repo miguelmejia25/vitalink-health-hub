@@ -37,19 +37,23 @@ export const BLEProvider = ({ children }: { children: ReactNode }) => {
 
   // Guardar datos en Firebase
   const saveToFirebase = async (data: VitalData) => {
-    try {
-      const vitalsRef = ref(db, 'vitals');
-      await push(vitalsRef, {
-        heart: data.heart,
-        oxygen: data.oxygen,
-        temp: data.temp,
-        timestamp: Date.now()
-      });
-      console.log('✅ Guardado en Firebase');
-    } catch (err) {
-      console.error('❌ Error Firebase:', err);
-    }
-  };
+  try {
+    setDebug(`Guardando: HR:${data.heart} O2:${data.oxygen} T:${data.temp}`);
+    
+    const vitalsRef = ref(db, 'vitals');
+    await push(vitalsRef, {
+      heart: data.heart,
+      oxygen: data.oxygen,
+      temp: data.temp,
+      timestamp: Date.now()
+    });
+    
+    setDebug('✅ Guardado en Firebase');
+  } catch (err: any) {
+    setDebug('❌ Error Firebase: ' + err.message);
+    console.error('Error Firebase:', err);
+  }
+};
 
   const connectDevice = useCallback(async () => {
     if (!navigator.bluetooth) {
