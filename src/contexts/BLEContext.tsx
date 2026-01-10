@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import { db } from '@/lib/firebase';
+import { ref, push, set, serverTimestamp } from 'firebase/database';
 
 interface VitalData {
   heart: number;
@@ -32,6 +34,22 @@ export const BLEProvider = ({ children }: { children: ReactNode }) => {
   
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const charRef = useRef<BluetoothRemoteGATTCharacteristic | null>(null);
+
+  // Guardar datos en Firebase
+  const saveToFirebase = async (data: VitalData) => {
+    try {
+      const vitalsRef = ref(db, 'vitals');
+      await push(vitalsRef, {
+        heart: data.heart,
+        oxygen: data.oxygen,
+        temp: data.temp,
+        timestamp: Date.now()
+      });
+      console.log('✅ Guardado en Firebase');
+    } catch (err) {
+      console.error('❌ Error Firebase:', err);
+    }
+  };
 
   const connectDevice = useCallback(async () => {
     if (!navigator.bluetooth) {
@@ -82,22 +100,27 @@ export const BLEProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
 
-          setDebug(`Bytes: ${value.byteLength}`);
-
           if (value.byteLength >= 4) {
             const heart = value.getUint8(0);
             const oxygen = value.getUint8(1);
             const tempRaw = value.getUint16(2, true);
             const temp = tempRaw / 10;
 
-            setDebug(`HR:${heart} O2:${oxygen} T:${temp}`);
-
-            setCurrentData({
+            const newData: VitalData = {
               heart,
               oxygen,
               temp: Number(temp.toFixed(1)),
               timestamp: Date.now()
-            });
+            };
+
+            setDebug(`HR:${heart} O2:${oxygen} T:${temp}`);
+            setCurrentData(newData);
+            setHistory(prev => [newData, ...prev].slice(0, 50));
+
+            // Guardar en Firebase solo si hay datos válidos
+            if (heart > 0 || oxygen > 0 || temp > 0) {
+              saveToFirebase(newData);
+            }
           }
         } catch (e: any) {
           setDebug('Error datos: ' + e.message);
